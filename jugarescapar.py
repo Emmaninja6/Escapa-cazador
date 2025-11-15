@@ -1,5 +1,6 @@
 import pygame
 import random
+from Terrenos import Camino, Muro, Liana, Tunel
 
 def jugar(window):
 
@@ -31,27 +32,27 @@ def jugar(window):
             fila = []
             for j in range(COLUMNAS):
                 if i == 0 or i == FILAS - 1 or j == 0 or j == COLUMNAS - 1:
-                    fila.append(1)  # Muro en bordes
+                    fila.append(Muro())  # Muro en bordes
                 elif random.random() < 0.65:  # 65% de caminos
-                    fila.append(0)  # Camino
+                    fila.append(Camino())  # Camino
                 elif random.random() < 0.15:
-                    fila.append(3)  # tunel
+                    fila.append(Tunel())  # tunel
                 elif random.random() < 0.15:
-                    fila.append(2)  # liana
+                    fila.append(Liana())  # liana
                 else:
-                    fila.append(1)  # Muro
+                    fila.append(Muro())  # Muro
             mapa.append(fila)
 
 
-        mapa[1][1] = 0  # Inicio
-        mapa[FILAS - 2][COLUMNAS - 2] = 0  # Salida
+        mapa[1][1] = Camino()  # Inicio
+        mapa[FILAS - 2][COLUMNAS - 2] = Camino()  # Salida
         return mapa
 
     def elegir_puntos_inicio_y_salida(mapa):
         caminos = []
         for y in range(FILAS):
             for x in range(COLUMNAS):
-                if mapa[y][x] == 0:  # Caminos o túneles
+                if mapa[y][x].transitable_jugador:  # Caminos o túneles
                     caminos.append((x, y))
         inicio = random.choice(caminos)
         caminos.remove(inicio)
@@ -66,7 +67,8 @@ def jugar(window):
             return True
         if x < 0 or x >= COLUMNAS or y < 0 or y >= FILAS:
             return False
-        if mapa[y][x] not in [0, 3] or visitado[y][x]:
+        terreno = mapa[y][x]
+        if not terreno.transitable_jugador or visitado[y][x]:
             return False
 
         visitado[y][x] = True
@@ -92,16 +94,9 @@ def jugar(window):
                 x = j * TAMAÑO_CELDA
                 y = i * TAMAÑO_CELDA
 
-                if mapa[i][j] == 0:  # Camino
-                    color = GRIS
-                elif mapa[i][j] == 1:  # Muro
-                    color = NEGRO
-                elif mapa[i][j] == 2:  # Lianas
-                    color = VERDE_OSCURO
-                else:  # Túneles
-                    color = MARRON
+                terreno = mapa[i][j]
 
-                pygame.draw.rect(screen, color, (x, y, TAMAÑO_CELDA, TAMAÑO_CELDA))
+                pygame.draw.rect(screen, terreno.color, (x, y, TAMAÑO_CELDA, TAMAÑO_CELDA))
                 pygame.draw.rect(screen, (100, 100, 100), (x, y, TAMAÑO_CELDA, TAMAÑO_CELDA), 1)
 
 
@@ -118,17 +113,22 @@ def jugar(window):
 
             # Movimiento
             if event.type == pygame.KEYDOWN and not ganaste:
-                if event.key == pygame.K_UP and jugador_y > 0 and mapa[jugador_y - 1][jugador_x] in [0, 3]:
-                    jugador_y -= 1
-                elif event.key == pygame.K_DOWN and jugador_y < FILAS - 1 and mapa[jugador_y + 1][jugador_x] in [0, 3]:
-                    jugador_y += 1
-                elif event.key == pygame.K_LEFT and jugador_x > 0 and mapa[jugador_y][jugador_x - 1] in [0, 3]:
-                    jugador_x -= 1
-                elif event.key == pygame.K_RIGHT and jugador_x < COLUMNAS - 1 and mapa[jugador_y][jugador_x + 1] in [0,
-                                                                                                                     3]:
-                    jugador_x += 1
-                elif event.key == pygame.K_ESCAPE:  # Salir con ESC
-                    running = False
+                nuevo_x, nuevo_y = jugador_x, jugador_y
+
+                if event.key == pygame.K_UP and jugador_y > 0:
+                    nuevo_y -= 1
+                elif event.key == pygame.K_DOWN and jugador_y < FILAS - 1:
+                    nuevo_y += 1
+                elif event.key == pygame.K_LEFT and jugador_x > 0:
+                    nuevo_x -= 1
+                elif event.key == pygame.K_RIGHT and jugador_x < COLUMNAS - 1:
+                    nuevo_x += 1
+
+                # Verificar si el terreno es transitable para el jugador
+                if 0 <= nuevo_x < COLUMNAS and 0 <= nuevo_y < FILAS:
+                    terreno = mapa[nuevo_y][nuevo_x]
+                    if terreno.transitable_jugador:
+                        jugador_x, jugador_y = nuevo_x, nuevo_y
 
 
         screen.fill(NEGRO)
