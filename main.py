@@ -4,6 +4,7 @@ import random
 from PIL import ImageTk, Image
 import pygame
 import puntajes
+import jugarescapar
 
 
 window = tk.Tk()
@@ -18,7 +19,7 @@ textoPrincipal.pack()
 elegir = Label( text= "Elija un modo de juego",font=("Impact", 15), fg="Black", bg="green")
 elegir.place(x= 60, y= 150)
 
-boton_escapa = Button(text="Escapar")
+boton_escapa = Button(text="Escapar" ,command=lambda:jugarescapar.jugar(window))
 boton_escapa.place(x=60,y= 200)
 
 boton_cazar = Button(text="Cazador")
