@@ -47,6 +47,45 @@ def jugar(window):
         mapa[FILAS - 2][COLUMNAS - 2] = 0  # Salida
         return mapa
 
+    def elegir_puntos_inicio_y_salida(mapa):
+        caminos = []
+        for y in range(FILAS):
+            for x in range(COLUMNAS):
+                if mapa[y][x] == 0:  # Caminos o túneles
+                    caminos.append((x, y))
+        inicio = random.choice(caminos)
+        caminos.remove(inicio)
+        salida = random.choice(caminos)
+        return inicio, salida
+
+    def distancia(a, b):
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+    def es_resoluble(mapa, x, y,salida, visitado):
+        if (x, y) == salida:
+            return True
+        if x < 0 or x >= COLUMNAS or y < 0 or y >= FILAS:
+            return False
+        if mapa[y][x] not in [0, 3] or visitado[y][x]:
+            return False
+
+        visitado[y][x] = True
+
+        return (es_resoluble(mapa, x + 1, y, salida, visitado) or
+                es_resoluble(mapa, x - 1, y, salida, visitado) or
+                es_resoluble(mapa, x, y + 1, salida, visitado) or
+                es_resoluble(mapa, x, y - 1, salida, visitado))
+
+    def generar_mapa_valido():
+        while True:
+            mapa = generar_mapa()
+            inicio, salida = elegir_puntos_inicio_y_salida(mapa)
+            if distancia(inicio, salida) < 10:
+                continue  # Demasiado cerca, generar otro mapa
+            visitado = [[False for _ in range(COLUMNAS)] for _ in range(FILAS)]
+            if es_resoluble(mapa, inicio[0], inicio[1], salida, visitado):
+                return mapa, inicio, salida
+
     def dibujar_mapa(mapa):
         for i in range(FILAS):
             for j in range(COLUMNAS):
@@ -66,9 +105,8 @@ def jugar(window):
                 pygame.draw.rect(screen, (100, 100, 100), (x, y, TAMAÑO_CELDA, TAMAÑO_CELDA), 1)
 
 
-    mapa = generar_mapa()
-    jugador_x, jugador_y = 1, 1
-
+    mapa, (jugador_x, jugador_y), (salida_x, salida_y) = generar_mapa_valido()
+    ganaste = False #Bandera para las teclas de movimiento
 
     running = True
     clock = pygame.time.Clock()
@@ -79,7 +117,7 @@ def jugar(window):
                 running = False
 
             # Movimiento
-            if event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN and not ganaste:
                 if event.key == pygame.K_UP and jugador_y > 0 and mapa[jugador_y - 1][jugador_x] in [0, 3]:
                     jugador_y -= 1
                 elif event.key == pygame.K_DOWN and jugador_y < FILAS - 1 and mapa[jugador_y + 1][jugador_x] in [0, 3]:
@@ -104,12 +142,12 @@ def jugar(window):
 
         #salida
         pygame.draw.rect(screen, AMARILLO,
-                         ((COLUMNAS - 2) * TAMAÑO_CELDA + 5,
-                          (FILAS - 2) * TAMAÑO_CELDA + 5,
+                         (salida_x * TAMAÑO_CELDA + 5,
+                          salida_y * TAMAÑO_CELDA + 5,
                           TAMAÑO_CELDA - 10, TAMAÑO_CELDA - 10))
 
-
-        if jugador_x == COLUMNAS - 2 and jugador_y == FILAS - 2:
+        if jugador_x == salida_x and jugador_y == salida_y:
+            ganaste = True
             font = pygame.font.Font(None, 36)
             texto = font.render("¡GANASTE!", True, (255, 255, 255))
             screen.blit(texto, (ANCHO // 2 - 70, ALTO // 2 - 18))

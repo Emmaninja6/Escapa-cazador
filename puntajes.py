@@ -19,4 +19,4 @@ def abrir_puntaje(window):
     boton_salir = tk.Button(puntaje, text="Salir", command=cerrar_ventana)
     boton_salir.place(x=160, y=250)
 
-    window.withdraw()
+    window.withdraw() 
