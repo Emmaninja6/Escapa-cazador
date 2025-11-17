@@ -2,6 +2,7 @@ import pygame
 import random
 from Terrenos import Camino, Muro, Liana, Tunel
 from Jugador import Jugador
+from Enemigos import Enemigo
 
 def jugar(window):
 
@@ -101,7 +102,30 @@ def jugar(window):
 
     mapa, (jugador_x, jugador_y), (salida_x, salida_y) = generar_mapa_valido()
     ganaste = False #Bandera para las teclas de movimiento
+    perdiste = False
     jugador = Jugador(jugador_x, jugador_y, TAMAÑO_CELDA)
+
+    enemigos = []
+    NUM_ENEMIGOS = 3
+    for _ in range(NUM_ENEMIGOS):
+        while True:
+            x = random.randint(1, COLUMNAS - 2)
+            y = random.randint(1, FILAS - 2)
+            if (
+                    mapa[y][x].transitable_enemigo and (x, y) != (jugador_x, jugador_y)
+            ):
+                # Verifica que tenga al menos una salida libre
+                vecinos_validos = 0
+                direcciones = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+                for dx, dy in direcciones:
+                    nx = x + dx
+                    ny = y + dy
+                    if 0 <= nx < COLUMNAS and 0 <= ny < FILAS:
+                        if mapa[ny][nx].transitable_enemigo:
+                            vecinos_validos += 1
+                if vecinos_validos > 0:
+                    enemigos.append(Enemigo(x, y, TAMAÑO_CELDA))
+                    break
 
     running = True
     clock = pygame.time.Clock()
@@ -113,7 +137,7 @@ def jugar(window):
 
             # Movimiento
 
-            if event.type == pygame.KEYDOWN and not ganaste:
+            if event.type == pygame.KEYDOWN and not ganaste and not perdiste:
                 if event.key == pygame.K_UP:
                     jugador.iniciar_movimiento("UP", mapa, COLUMNAS, FILAS)
                 elif event.key == pygame.K_DOWN:
@@ -142,6 +166,22 @@ def jugar(window):
         jugador.dibujar(screen, AZUL)
         jugador.dibujar_trampas(screen)
 
+        #Elementos relacionados a los enemigos
+
+        for enemigo in enemigos:
+            enemigo.elegir_movimiento_aleatorio(mapa, COLUMNAS, FILAS)
+            enemigo.actualizar()
+
+        if not ganaste and not perdiste:
+            jugador.actualizar()
+            for enemigo in enemigos:
+                if enemigo.celda_x == jugador.celda_x and enemigo.celda_y == jugador.celda_y:
+                    perdiste = True
+                    break
+
+        for enemigo in enemigos:
+            enemigo.dibujar(screen)
+
 
 
         #salida
@@ -152,6 +192,15 @@ def jugar(window):
 
         if jugador.celda_x == salida_x and jugador.celda_y == salida_y:
             ganaste = True
+
+        if enemigo.celda_x == jugador.celda_x and enemigo.celda_y == jugador.celda_y:
+            perdiste = True
+
+        if perdiste:
+            font = pygame.font.Font(None, 36)
+            texto = font.render("¡PERDISTE!", True, (255, 0, 0))
+            screen.blit(texto, (ANCHO // 2 - 70, ALTO // 2 - 18))
+        elif ganaste:
             font = pygame.font.Font(None, 36)
             texto = font.render("¡GANASTE!", True, (255, 255, 255))
             screen.blit(texto, (ANCHO // 2 - 70, ALTO // 2 - 18))
