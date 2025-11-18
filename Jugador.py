@@ -66,7 +66,7 @@ class Jugador:
             nuevo_x += 1
 
         if self.corriendo:
-            self.energia -= 25
+            self.energia -= 23
             if self.energia <= 0:
                 self.energia = 0
                 self.cansancio = True
@@ -217,7 +217,8 @@ class Jugador:
     def puede_colocar_trampa(self):
         tiempo_actual = pygame.time.get_ticks()
         return (len(self.trampas) < self.max_trampas and
-                tiempo_actual - self.cooldown_trampa >= 5000)  # 5 segundos
+                tiempo_actual - self.cooldown_trampa >= 5000)
+
 
     def colocar_trampa(self, mapa, columnas, filas):
         if not self.puede_colocar_trampa():
@@ -244,6 +245,12 @@ class Jugador:
     def dibujar_trampas(self, pantalla):
         for trampa in self.trampas:
             trampa.dibujar(pantalla)
+
+    def eliminar_trampa(self, index):
+        if 0 <= index < len(self.trampas):
+            del self.trampas[index]
+            return True
+        return False
 
 
 class Trampa:

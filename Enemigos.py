@@ -15,6 +15,8 @@ class Enemigo:
         self.pixel_x = celda_x * tamaño_celda + tamaño_celda // 2
         self.pixel_y = celda_y * tamaño_celda + tamaño_celda // 2
         self.color = (255, 255, 0)  # Amarillo
+        self.activo = True
+        self.tiempo_muerte = 0
 
     def dibujar(self, pantalla):
         pygame.draw.circle(pantalla, self.color,
@@ -22,7 +24,7 @@ class Enemigo:
                            self.tamaño_celda // 3)
 
     def elegir_movimiento_aleatorio(self, mapa, columnas, filas):
-        if self.en_movimiento:
+        if self.en_movimiento or not self.activo:
             return
 
         opciones = []
@@ -41,7 +43,7 @@ class Enemigo:
             self.en_movimiento = True
 
     def actualizar(self):
-        if not self.en_movimiento:
+        if not self.activo or not self.en_movimiento:
             return
 
         objetivo_x = self.celda_objetivo_x * self.tamaño_celda + self.tamaño_celda // 2
@@ -61,6 +63,46 @@ class Enemigo:
             self.celda_x = self.celda_objetivo_x
             self.celda_y = self.celda_objetivo_y
             self.en_movimiento = False
+
+    def puede_reaparecer(self):
+        if not self.activo:
+            tiempo_actual = pygame.time.get_ticks()
+            tiempo_transcurrido = (tiempo_actual - self.tiempo_muerte) / 1000.0  # Convertir a segundos
+            return tiempo_transcurrido >= 10.0  # 10 segundos
+        return False
+
+    def reaparecer(self, mapa, columnas, filas, jugador_pos):
+
+        intentos = 0
+        while intentos < 50:  # Límite de intentos
+            x = random.randint(1, columnas - 2)
+            y = random.randint(1, filas - 2)
+
+            # posición sea válida
+            if (mapa[y][x].transitable_enemigo and
+                    (x, y) != jugador_pos and
+                    self._tiene_vecinos_validos(x, y, mapa, columnas, filas)):
+                self.celda_x = x
+                self.celda_y = y
+                self.pixel_x = x * self.tamaño_celda + self.tamaño_celda // 2
+                self.pixel_y = y * self.tamaño_celda + self.tamaño_celda // 2
+                self.celda_objetivo_x = x
+                self.celda_objetivo_y = y
+                self.en_movimiento = False
+                self.activo = True
+                return True
+            intentos += 1
+        return False
+
+    def _tiene_vecinos_validos(self, x, y, mapa, columnas, filas):
+        direcciones = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+        for dx, dy in direcciones:
+            nx = x + dx
+            ny = y + dy
+            if 0 <= nx < columnas and 0 <= ny < filas:
+                if mapa[ny][nx].transitable_enemigo:
+                    return True
+        return False
 
 
 

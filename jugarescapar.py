@@ -167,20 +167,54 @@ def jugar(window):
         jugador.dibujar_trampas(screen)
 
         #Elementos relacionados a los enemigos
+        enemigos_a_eliminar = []
+        trampas_a_eliminar = []
 
-        for enemigo in enemigos:
-            enemigo.elegir_movimiento_aleatorio(mapa, COLUMNAS, FILAS)
-            enemigo.actualizar()
+        for i, enemigo in enumerate(enemigos):
+            if not enemigo.activo:
+                continue
 
-        if not ganaste and not perdiste:
-            jugador.actualizar()
-            for enemigo in enemigos:
-                if enemigo.celda_x == jugador.celda_x and enemigo.celda_y == jugador.celda_y:
-                    perdiste = True
+            for j, trampa in enumerate(jugador.trampas):
+                if (enemigo.celda_x == trampa.celda_x and
+                        enemigo.celda_y == trampa.celda_y and
+                        trampa.activa):
+                    enemigos_a_eliminar.append(i)
+                    trampas_a_eliminar.append(j)
                     break
 
+        # Eliminar enemigos y trampas
+        for index in sorted(enemigos_a_eliminar, reverse=True):
+                enemigos[index].activo = False  #
+                enemigos[index].tiempo_muerte = pygame.time.get_ticks()
+
+        for index in sorted(trampas_a_eliminar, reverse=True):
+                del jugador.trampas[index]
+
+        # 2. Manejar reaparición de enemigos
         for enemigo in enemigos:
-            enemigo.dibujar(screen)
+                if not enemigo.activo and enemigo.puede_reaparecer():
+                    jugador_pos = (jugador.celda_x, jugador.celda_y)
+                    enemigo.reaparecer(mapa, COLUMNAS, FILAS, jugador_pos)
+
+        # 3. Actualizar enemigos activos
+        for enemigo in enemigos:
+                if enemigo.activo:
+                    enemigo.elegir_movimiento_aleatorio(mapa, COLUMNAS, FILAS)
+                    enemigo.actualizar()
+
+        # 4. Verificar si el jugador fue atrapado por enemigos ACTIVOS
+        if not ganaste and not perdiste:
+                for enemigo in enemigos:
+                    if (enemigo.activo and
+                            enemigo.celda_x == jugador.celda_x and
+                            enemigo.celda_y == jugador.celda_y):
+                        perdiste = True
+                        break
+
+        # 5. Dibujar enemigos activos
+        for enemigo in enemigos:
+                if enemigo.activo:
+                    enemigo.dibujar(screen)
 
 
 
