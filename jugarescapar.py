@@ -155,7 +155,7 @@ def jugar(window):
     mapa, (jugador_x, jugador_y), (salida_x, salida_y) = generar_mapa_valido()
     ganaste = False #Bandera para las teclas de movimiento
     perdiste = False
-    jugador = Jugador(jugador_x, jugador_y, TAMAÑO_CELDA)
+    jugador = Jugador(jugador_x, jugador_y, TAMAÑO_CELDA, modo="escapar")
 
     enemigos = []
     NUM_ENEMIGOS = 3
@@ -290,7 +290,8 @@ def jugar(window):
         #  Actualizar enemigos activos
         for enemigo in enemigos:
                 if enemigo.activo:
-                    enemigo.elegir_movimiento_aleatorio(mapa, COLUMNAS, FILAS)
+                    jugador_pos = (jugador.celda_x, jugador.celda_y)
+                    enemigo.elegir_movimiento_aleatorio(mapa, COLUMNAS, FILAS,jugador_pos)
                     enemigo.actualizar()
 
         #  Verificar si el jugador fue atrapado por enemigos ACTIVOS

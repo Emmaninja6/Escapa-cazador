@@ -5,6 +5,7 @@ from PIL import ImageTk, Image
 import pygame
 import puntajes
 import jugarescapar
+import jugarcazador
 
 
 window = tk.Tk()
@@ -22,7 +23,7 @@ elegir.place(x= 60, y= 150)
 boton_escapa = Button(text="Escapar" ,command=lambda: jugarescapar.jugar(window))
 boton_escapa.place(x=60,y= 200)
 
-boton_cazar = Button(text="Cazador")
+boton_cazar = Button(text="Cazador",command=lambda: jugarcazador.jugar(window))
 boton_cazar.place(x= 160,y=200)
 
 puntos = Label(text="Tabla de puntajes",font=("Impact", 15), fg="Black", bg="green")
