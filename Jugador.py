@@ -1,7 +1,8 @@
 import pygame
+from Terrenos import Camino, Liana, Tunel
 
 class Jugador:
-    def __init__(self, x, y, tamaño_celda):
+    def __init__(self, x, y, tamaño_celda, modo="escapar"):
         # Posición en celdas
         self.celda_x = x
         self.celda_y = y
@@ -27,6 +28,20 @@ class Jugador:
         self.max_trampas = 3
         self.cooldown_trampa = None
         self.puntos_trampas = 0
+        self.modo = modo
+
+    def _es_movimiento_valido(self, mapa, x, y):
+            if x < 0 or x >= len(mapa[0]) or y < 0 or y >= len(mapa):
+                return False
+
+            terreno = mapa[y][x]
+
+            if self.modo == "cazador":
+                # En modo cazador: puede pasar por Caminos y Lianas
+                return isinstance(terreno, Camino) or isinstance(terreno, Liana)
+            else:  # modo escapar
+                # En modo escapar: puede pasar por Caminos y Túneles
+                return isinstance(terreno, Camino) or isinstance(terreno, Tunel)
 
     def puede_moverse(self):
 
@@ -75,9 +90,7 @@ class Jugador:
                 return False
 
         # Verificar si puede moverse ahí
-        if (nuevo_x < 0 or nuevo_x >= columnas or
-                nuevo_y < 0 or nuevo_y >= filas or
-                not mapa[nuevo_y][nuevo_x].transitable_jugador):
+        if not self._es_movimiento_valido(mapa, nuevo_x, nuevo_y):
             return False
 
         self.celda_objetivo_x = nuevo_x
@@ -111,9 +124,7 @@ class Jugador:
         celda_y = int(nuevo_pixel_y / self.tamaño_celda)
 
         # Verificar si puede moverse ahí
-        if (celda_x < 0 or celda_x >= columnas or
-                celda_y < 0 or celda_y >= filas or
-                not mapa[celda_y][celda_x].transitable_jugador):
+        if not self._es_movimiento_valido(mapa, celda_x, celda_y):
             return False
 
         # Establecer destino parcial
@@ -198,7 +209,6 @@ class Jugador:
         # Borde
         pygame.draw.rect(pantalla, (255, 255, 255), (x, y, ancho, alto), 2)
 
-        # Texto opcional
         font = pygame.font.Font(None, 24)
         texto = font.render(f"Energía: {int(self.energia)}", True, (255, 255, 255))
         pantalla.blit(texto, (x, y - 25))

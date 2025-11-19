@@ -1,8 +1,9 @@
 import pygame
 import random
+from Terrenos import Camino, Muro, Liana, Tunel
 
 class Enemigo:
-    def __init__(self, celda_x, celda_y, tamaño_celda):
+    def __init__(self, celda_x, celda_y, tamaño_celda,modo="escapar"):
         self.celda_x = celda_x
         self.celda_y = celda_y
         self.celda_objetivo_x = celda_x
@@ -17,27 +18,65 @@ class Enemigo:
         self.color = (255, 255, 0)  # Amarillo
         self.activo = True
         self.tiempo_muerte = 0
+        self.modo = modo  # "escapar" o "cazador"
+
+    def elegir_movimiento(self, mapa, columnas, filas, jugador_pos=None):
+        if self.modo == "escapar":
+            self.elegir_movimiento_aleatorio(mapa, columnas, filas,jugador_pos)
+        elif self.modo == "cazador" and jugador_pos:
+            self.elegir_movimiento_huida(mapa, columnas, filas, jugador_pos)
 
     def dibujar(self, pantalla):
         pygame.draw.circle(pantalla, self.color,
                            (int(self.pixel_x), int(self.pixel_y)),
                            self.tamaño_celda // 3)
 
-    def elegir_movimiento_aleatorio(self, mapa, columnas, filas):
+    def elegir_movimiento_aleatorio(self, mapa, columnas, filas,jugador_pos):
         if self.en_movimiento or not self.activo:
             return
 
+        jugador_x, jugador_y = jugador_pos
         opciones = []
         direcciones = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+
         for dx, dy in direcciones:
             nx = self.celda_x + dx
             ny = self.celda_y + dy
-            if 0 <= nx < columnas and 0 <= ny < filas:
-                if mapa[ny][nx].transitable_enemigo:
-                    opciones.append((nx, ny))
+            if (0 <= nx < columnas and 0 <= ny < filas and
+                    self._es_transitable_para_modo(mapa, nx, ny)):
+                # Calcular distancia al jugador (queremos minimizarla)
+                dist = abs(nx - jugador_x) + abs(ny - jugador_y)
+                opciones.append((nx, ny, dist))
 
         if opciones:
-            nx, ny = random.choice(opciones)
+            # Elegir la dirección que más acerque al jugador
+            opciones.sort(key=lambda x: x[2])  # Orden ascendente (menor distancia primero)
+            nx, ny, _ = opciones[0]
+            self.celda_objetivo_x = nx
+            self.celda_objetivo_y = ny
+            self.en_movimiento = True
+
+    def elegir_movimiento_huida(self, mapa, columnas, filas, jugador_pos):
+        if self.en_movimiento or not self.activo:
+            return
+
+        jugador_x, jugador_y = jugador_pos
+        opciones = []
+        direcciones = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+
+        for dx, dy in direcciones:
+            nx = self.celda_x + dx
+            ny = self.celda_y + dy
+            if (0 <= nx < columnas and 0 <= ny < filas and
+                    self._es_transitable_para_modo(mapa, nx, ny)):
+                # Calcular distancia al jugador
+                dist = abs(nx - jugador_x) + abs(ny - jugador_y)
+                opciones.append((nx, ny, dist))
+
+        if opciones:
+            # Elegir la dirección que más aleje del jugador
+            opciones.sort(key=lambda x: x[2], reverse=True)
+            nx, ny, _ = opciones[0]
             self.celda_objetivo_x = nx
             self.celda_objetivo_y = ny
             self.en_movimiento = True
@@ -100,9 +139,20 @@ class Enemigo:
             nx = x + dx
             ny = y + dy
             if 0 <= nx < columnas and 0 <= ny < filas:
-                if mapa[ny][nx].transitable_enemigo:
+                if self._es_transitable_para_modo(mapa, nx, ny):
                     return True
         return False
+
+    def _es_transitable_para_modo(self, mapa, x, y):
+        """Verifica si la celda es transitable según el modo"""
+        terreno = mapa[y][x]
+
+        if self.modo == "cazador":
+            # En modo cazador: enemigos pueden pasar por Caminos y Túneles
+            return isinstance(terreno, Camino) or isinstance(terreno, Tunel)
+        else:  # modo escapar
+            # En modo escapar: enemigos pueden pasar por Caminos y Lianas
+            return isinstance(terreno, Camino) or isinstance(terreno, Liana)
 
 
 
