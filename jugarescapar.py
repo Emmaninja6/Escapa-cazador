@@ -3,6 +3,7 @@ import random
 from Terrenos import Camino, Muro, Liana, Tunel
 from Jugador import Jugador
 from Enemigos import Enemigo
+import tkinter as tk
 
 def jugar(window):
 
@@ -22,9 +23,33 @@ def jugar(window):
     AZUL = (0, 0, 255)
     AMARILLO = (255, 255, 0)
 
-
+    HUD_ALTO = 70
+    ANCHO, ALTO = 550, 550 + HUD_ALTO
     screen = pygame.display.set_mode((ANCHO, ALTO))
     pygame.display.set_caption("Escapa del Laberinto")
+
+    def mostrar_resultado_tk(mensaje):
+
+        resultado = tk.Toplevel(window)
+        resultado.title("Resultado")
+        resultado.geometry("350x200")
+        resultado.resizable(width=False, height=False)
+        resultado.configure(bg="green")
+
+        label_titulo = tk.Label(resultado, text=mensaje,
+                                font=("Impact", 18), bg="green", fg="white")
+        label_titulo.place(x=120, y=60)
+
+        def cerrar_ventana():
+            resultado.destroy()
+            window.deiconify()  # Volver al menú principal
+
+        boton_salir = tk.Button(resultado, text="Salir al menú",
+                                command=cerrar_ventana)
+        boton_salir.place(x=130, y=120)
+
+
+        window.withdraw()
 
     def generar_mapa():
         mapa = []
@@ -155,12 +180,41 @@ def jugar(window):
                 if event.key == pygame.K_LSHIFT:
                     jugador.activar_correr(False)
 
-
-
-
         screen.fill(NEGRO)
+        pygame.draw.rect(screen, (50, 50, 50), (0, 550, 550, HUD_ALTO))
+
+        font = pygame.font.SysFont(None, 28)
+
+        # Calcula valores actuales
+        energia = jugador.energia
+        trampas_disponibles = jugador.max_trampas - len(jugador.trampas)
+        puntaje = 0
+
+        # Cálculo del cooldown de trampas (en segundos)
+        if jugador.cooldown_trampa is None:
+            cooldown_seg = 0  # Sin cooldown activo aún
+        else:
+            tiempo_actual = pygame.time.get_ticks()
+            tiempo_desde_ultima = tiempo_actual - jugador.cooldown_trampa
+            tiempo_restante_ms = 5000 - tiempo_desde_ultima
+
+            if tiempo_restante_ms <= 0:
+                cooldown_seg = 0
+            else:
+                cooldown_seg = tiempo_restante_ms // 1000
+
+        texto_trampas = font.render(f"Trampas: {trampas_disponibles}", True, (255, 255, 255))
+        texto_puntos = font.render(f"Puntos: {puntaje}", True, (255, 255, 0))
+        texto_cooldown = font.render(f"Cooldown: {cooldown_seg}s", True, (255, 100, 100))
+
+        # textos en el HUD
+        screen.blit(texto_trampas, (230, 570))
+        screen.blit(texto_puntos, (350, 570))
+        screen.blit(texto_cooldown, (230, 590))
+
         dibujar_mapa(mapa)
-        jugador.dibujar_barra_energia(screen, 20, 20, 200, 20)
+        dibujar_mapa(mapa)
+        jugador.dibujar_barra_energia(screen, 20, 590, 200, 20)
         jugador.recuperar_energia()
         jugador.actualizar()
         jugador.dibujar(screen, AZUL)
@@ -224,7 +278,13 @@ def jugar(window):
                           salida_y * TAMAÑO_CELDA + 5,
                           TAMAÑO_CELDA - 10, TAMAÑO_CELDA - 10))
 
-        if jugador.celda_x == salida_x and jugador.celda_y == salida_y:
+        salida_pixel_x = salida_x * TAMAÑO_CELDA + TAMAÑO_CELDA // 2
+        salida_pixel_y = salida_y * TAMAÑO_CELDA + TAMAÑO_CELDA // 2
+        jugador_radio = jugador.tamaño_celda // 3  # Mismo radio usado para dibujar
+        margen = TAMAÑO_CELDA // 2 - jugador_radio
+
+        if (abs(jugador.pixel_x - salida_pixel_x) <= margen and
+                abs(jugador.pixel_y - salida_pixel_y) <= margen):
             ganaste = True
 
         if enemigo.celda_x == jugador.celda_x and enemigo.celda_y == jugador.celda_y:
@@ -239,9 +299,20 @@ def jugar(window):
             texto = font.render("¡GANASTE!", True, (255, 255, 255))
             screen.blit(texto, (ANCHO // 2 - 70, ALTO // 2 - 18))
 
+        if perdiste or ganaste:
+            pygame.display.update()
+            pygame.time.delay(500)
+            running = False
+
         pygame.display.update()
         clock.tick(60)  # 60 FPS
 
     # Salir del juego
     pygame.quit()
-    window.deiconify()
+    if perdiste:
+        mostrar_resultado_tk("¡PERDISTE!")
+    elif ganaste:
+        mostrar_resultado_tk("¡GANASTE!")
+    else:
+        # Si se cerró la ventana sin ganar ni perder
+        window.deiconify()

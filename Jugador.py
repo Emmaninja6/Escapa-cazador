@@ -25,7 +25,7 @@ class Jugador:
         self.cooldown_movimiento = 0.2
         self.trampas = []
         self.max_trampas = 3
-        self.cooldown_trampa = 0
+        self.cooldown_trampa = None
 
     def puede_moverse(self):
 
@@ -66,7 +66,7 @@ class Jugador:
             nuevo_x += 1
 
         if self.corriendo:
-            self.energia -= 23
+            self.energia -= 20
             if self.energia <= 0:
                 self.energia = 0
                 self.cansancio = True
@@ -216,9 +216,12 @@ class Jugador:
 
     def puede_colocar_trampa(self):
         tiempo_actual = pygame.time.get_ticks()
+        if self.cooldown_trampa is None:
+            # Nunca ha puesto trampa, solo limita por cantidad
+            return len(self.trampas) < self.max_trampas
+
         return (len(self.trampas) < self.max_trampas and
                 tiempo_actual - self.cooldown_trampa >= 5000)
-
 
     def colocar_trampa(self, mapa, columnas, filas):
         if not self.puede_colocar_trampa():
