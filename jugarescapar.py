@@ -4,6 +4,7 @@ from Terrenos import Camino, Muro, Liana, Tunel
 from Jugador import Jugador
 from Enemigos import Enemigo
 import tkinter as tk
+import time
 
 def jugar(window):
 
@@ -22,32 +23,58 @@ def jugar(window):
     MARRON = (139, 69, 19)
     AZUL = (0, 0, 255)
     AMARILLO = (255, 255, 0)
+    PUNTOS_POR_TRAMPA = 50
 
     HUD_ALTO = 70
     ANCHO, ALTO = 550, 550 + HUD_ALTO
     screen = pygame.display.set_mode((ANCHO, ALTO))
     pygame.display.set_caption("Escapa del Laberinto")
+    tiempo_inicio = time.time()
+    tiempo_transcurrido = 0
 
-    def mostrar_resultado_tk(mensaje):
-
+    def mostrar_resultado_tk(mensaje, tiempo_final=0, puntos_trampas=0, puntaje_total=0):
         resultado = tk.Toplevel(window)
-        resultado.title("Resultado")
-        resultado.geometry("350x200")
+        resultado.title("Resultado Final")
+        resultado.geometry("450x450")
         resultado.resizable(width=False, height=False)
-        resultado.configure(bg="green")
+        resultado.configure(bg="#2E8B57")  # Verde más oscuro
 
-        label_titulo = tk.Label(resultado, text=mensaje,
-                                font=("Impact", 18), bg="green", fg="white")
-        label_titulo.place(x=120, y=60)
+        # Frame principal
+        frame = tk.Frame(resultado, bg="#2E8B57")
+        frame.pack(expand=True, fill='both', padx=20, pady=20)
 
-        def cerrar_ventana():
-            resultado.destroy()
-            window.deiconify()  # Volver al menú principal
+        # Título principal
+        label_titulo = tk.Label(frame, text=mensaje,
+                                font=("Impact", 24), bg="#2E8B57", fg="white")
+        label_titulo.pack(pady=10)
 
-        boton_salir = tk.Button(resultado, text="Salir al menú",
-                                command=cerrar_ventana)
-        boton_salir.place(x=130, y=120)
+        # Línea separadora
+        separator = tk.Frame(frame, height=2, bg="white")
+        separator.pack(fill='x', pady=5)
 
+        # Información de estadísticas
+        minutos = int(tiempo_final // 60)
+        segundos = int(tiempo_final % 60)
+
+        stats_text = f"""
+        Tiempo: {minutos:02d}:{segundos:02d}
+
+        Puntos por trampas: {puntos_trampas}
+
+        Puntaje total: {puntaje_total}
+        """
+
+        label_stats = tk.Label(frame, text=stats_text,
+                               font=("Impact", 14), bg="#2E8B57", fg="white",
+                               justify='left')
+        label_stats.pack(pady=15)
+
+        # Botón de salir
+        boton_salir = tk.Button(frame, text="Volver al Menú Principal",
+                                command=lambda: [resultado.destroy(), window.deiconify()],
+                                font=("Arial", 12), bg="#FF6B35", fg="white",)
+
+        boton_salir.place(x=100, y=300)
 
         window.withdraw()
 
@@ -188,7 +215,14 @@ def jugar(window):
         # Calcula valores actuales
         energia = jugador.energia
         trampas_disponibles = jugador.max_trampas - len(jugador.trampas)
-        puntaje = 0
+        puntaje = jugador.puntos_trampas
+
+        tiempo_transcurrido = time.time() - tiempo_inicio
+
+        # Convertir a formato minutos:segundos
+        minutos = int(tiempo_transcurrido // 60)
+        segundos = int(tiempo_transcurrido % 60)
+        tiempo_formateado = f"{minutos:02d}:{segundos:02d}"
 
         # Cálculo del cooldown de trampas (en segundos)
         if jugador.cooldown_trampa is None:
@@ -206,11 +240,13 @@ def jugar(window):
         texto_trampas = font.render(f"Trampas: {trampas_disponibles}", True, (255, 255, 255))
         texto_puntos = font.render(f"Puntos: {puntaje}", True, (255, 255, 0))
         texto_cooldown = font.render(f"Cooldown: {cooldown_seg}s", True, (255, 100, 100))
+        texto_tiempo = font.render(f"Tiempo: {tiempo_formateado}", True, (255, 255, 255))
 
         # textos en el HUD
         screen.blit(texto_trampas, (230, 570))
         screen.blit(texto_puntos, (350, 570))
         screen.blit(texto_cooldown, (230, 590))
+        screen.blit(texto_tiempo, (375, 590))
 
         dibujar_mapa(mapa)
         dibujar_mapa(mapa)
@@ -234,6 +270,7 @@ def jugar(window):
                         trampa.activa):
                     enemigos_a_eliminar.append(i)
                     trampas_a_eliminar.append(j)
+                    jugador.puntos_trampas += PUNTOS_POR_TRAMPA
                     break
 
         # Eliminar enemigos y trampas
@@ -244,19 +281,19 @@ def jugar(window):
         for index in sorted(trampas_a_eliminar, reverse=True):
                 del jugador.trampas[index]
 
-        # 2. Manejar reaparición de enemigos
+        # Manejar reaparición de enemigos
         for enemigo in enemigos:
                 if not enemigo.activo and enemigo.puede_reaparecer():
                     jugador_pos = (jugador.celda_x, jugador.celda_y)
                     enemigo.reaparecer(mapa, COLUMNAS, FILAS, jugador_pos)
 
-        # 3. Actualizar enemigos activos
+        #  Actualizar enemigos activos
         for enemigo in enemigos:
                 if enemigo.activo:
                     enemigo.elegir_movimiento_aleatorio(mapa, COLUMNAS, FILAS)
                     enemigo.actualizar()
 
-        # 4. Verificar si el jugador fue atrapado por enemigos ACTIVOS
+        #  Verificar si el jugador fue atrapado por enemigos ACTIVOS
         if not ganaste and not perdiste:
                 for enemigo in enemigos:
                     if (enemigo.activo and
@@ -300,6 +337,8 @@ def jugar(window):
             screen.blit(texto, (ANCHO // 2 - 70, ALTO // 2 - 18))
 
         if perdiste or ganaste:
+            tiempo_final = tiempo_transcurrido
+            puntos_obtenidos= puntaje
             pygame.display.update()
             pygame.time.delay(500)
             running = False
@@ -307,12 +346,15 @@ def jugar(window):
         pygame.display.update()
         clock.tick(60)  # 60 FPS
 
+
+    puntaje_total = jugador.puntos_trampas  # Por ahora solo puntos de trampas
+
     # Salir del juego
     pygame.quit()
     if perdiste:
-        mostrar_resultado_tk("¡PERDISTE!")
+        mostrar_resultado_tk("¡PERDISTE!", tiempo_final, jugador.puntos_trampas, puntaje_total)
     elif ganaste:
-        mostrar_resultado_tk("¡GANASTE!")
+        mostrar_resultado_tk("¡GANASTE!", tiempo_final, jugador.puntos_trampas, puntaje_total)
     else:
         # Si se cerró la ventana sin ganar ni perder
         window.deiconify()

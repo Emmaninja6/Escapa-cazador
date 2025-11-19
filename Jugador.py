@@ -26,6 +26,7 @@ class Jugador:
         self.trampas = []
         self.max_trampas = 3
         self.cooldown_trampa = None
+        self.puntos_trampas = 0
 
     def puede_moverse(self):
 
