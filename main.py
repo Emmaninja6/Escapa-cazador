@@ -6,6 +6,7 @@ import pygame
 import puntajes
 import jugarescapar
 import jugarcazador
+import configuracion
 
 
 window = tk.Tk()
@@ -20,11 +21,26 @@ textoPrincipal.pack()
 elegir = Label( text= "Elija un modo de juego",font=("Impact", 15), fg="Black", bg="green")
 elegir.place(x= 60, y= 150)
 
-boton_escapa = Button(text="Escapar" ,command=lambda: jugarescapar.jugar(window))
+def iniciar_escapa():
+    nombre = entry1.get().strip()
+    if not nombre:
+        # Podés mostrar un messagebox, por ahora un print:
+        print("Ingrese un nombre antes de jugar")
+        return
+    jugarescapar.jugar(window, nombre)
+
+boton_escapa = Button(text="Escapar", command=iniciar_escapa)
+
+boton_escapa = Button(text="Escapar" ,command=lambda: jugarescapar.jugar(window, entry1.get()))
 boton_escapa.place(x=60,y= 200)
 
 boton_cazar = Button(text="Cazador",command=lambda: jugarcazador.jugar(window))
 boton_cazar.place(x= 160,y=200)
+
+
+boton_configuracion = Button(text="Configuración", command=lambda: configuracion.abrir_configuracion(window))
+boton_configuracion.place(x=200, y=300)
+
 
 puntos = Label(text="Tabla de puntajes",font=("Impact", 15), fg="Black", bg="green")
 puntos.place(x= 300,y=150)

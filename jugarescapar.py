@@ -5,8 +5,43 @@ from Jugador import Jugador
 from Enemigos import Enemigo
 import tkinter as tk
 import time
+import configuracion
+import puntajes
+import os
 
-def jugar(window):
+RUTA_PUNTAJES_ESCAPA = "puntajes_escape.txt"
+
+def guardar_puntaje_escapa(nombre, puntos):
+    nombre = nombre.strip()
+    print("Guardando puntaje para:", repr(nombre))  # debug
+
+    if not nombre:
+        nombre = "Jugador"
+
+    # Leer los existentes
+    puntajes = []
+    if os.path.exists(RUTA_PUNTAJES_ESCAPA):
+        with open(RUTA_PUNTAJES_ESCAPA, "r", encoding="utf-8") as f:
+            for linea in f:
+                linea = linea.strip()
+                if not linea:
+                    continue
+                n, pts = linea.rsplit(",", 1)
+                try:
+                    pts = int(pts)
+                    puntajes.append((n, pts))
+                except ValueError:
+                    continue
+
+    puntajes.append((nombre, puntos))
+    puntajes.sort(key=lambda x: x[1], reverse=True)
+    puntajes = puntajes[:5]
+
+    with open(RUTA_PUNTAJES_ESCAPA, "w", encoding="utf-8") as f:
+        for n, p in puntajes:
+            f.write(f"{n},{p}\n")
+
+def jugar(window, nombre_jugador):
 
     window.withdraw()
 
@@ -31,6 +66,11 @@ def jugar(window):
     pygame.display.set_caption("Escapa del Laberinto")
     tiempo_inicio = time.time()
     tiempo_transcurrido = 0
+
+    try:
+        dificultad = configuracion.dificultad_actual
+    except AttributeError:
+        dificultad = "Medio"
 
     def mostrar_resultado_tk(mensaje, tiempo_final=0, puntos_trampas=0, puntaje_total=0):
         resultado = tk.Toplevel(window)
@@ -158,7 +198,26 @@ def jugar(window):
     jugador = Jugador(jugador_x, jugador_y, TAMAÑO_CELDA, modo="escapar")
 
     enemigos = []
-    NUM_ENEMIGOS = 3
+
+    # Ajustar parámetros según dificultad
+    if dificultad == "Facil":
+        NUM_ENEMIGOS = 1
+        velocidad_enemigo = 1
+    elif dificultad == "Dificil":
+        NUM_ENEMIGOS = 5
+        velocidad_enemigo = 5
+    else:  # Medio
+        NUM_ENEMIGOS = 3
+        velocidad_enemigo = 3
+
+    # Puntos por trampa según dificultad
+    if dificultad == "Facil":
+        PUNTOS_POR_TRAMPA = 25
+    elif dificultad == "Dificil":
+        PUNTOS_POR_TRAMPA = 75
+    else:  # Medio
+        PUNTOS_POR_TRAMPA = 50
+
     for _ in range(NUM_ENEMIGOS):
         while True:
             x = random.randint(1, COLUMNAS - 2)
@@ -176,11 +235,19 @@ def jugar(window):
                         if mapa[ny][nx].transitable_enemigo:
                             vecinos_validos += 1
                 if vecinos_validos > 0:
-                    enemigos.append(Enemigo(x, y, TAMAÑO_CELDA))
+                    ocupado = any(e.celda_x == x and e.celda_y == y for e in enemigos)
+                    if ocupado:
+                        continue
+
+                    nuevo_enemigo = Enemigo(x, y, TAMAÑO_CELDA)
+                    nuevo_enemigo.velocidad = velocidad_enemigo
+                    enemigos.append(nuevo_enemigo)
                     break
 
     running = True
     clock = pygame.time.Clock()
+
+    juego_iniciado = False
 
     while running:
         for event in pygame.event.get():
@@ -190,6 +257,9 @@ def jugar(window):
             # Movimiento
 
             if event.type == pygame.KEYDOWN and not ganaste and not perdiste:
+                juego_iniciado = True
+
+
                 if event.key == pygame.K_UP:
                     jugador.iniciar_movimiento("UP", mapa, COLUMNAS, FILAS)
                 elif event.key == pygame.K_DOWN:
@@ -256,30 +326,27 @@ def jugar(window):
         jugador.dibujar(screen, AZUL)
         jugador.dibujar_trampas(screen)
 
-        #Elementos relacionados a los enemigos
-        enemigos_a_eliminar = []
-        trampas_a_eliminar = []
 
-        for i, enemigo in enumerate(enemigos):
+
+        # Elementos relacionados a los enemigos y trampas
+
+        # Enemigos que pisan trampas
+        for enemigo in enemigos:
             if not enemigo.activo:
                 continue
 
-            for j, trampa in enumerate(jugador.trampas):
+            for trampa in jugador.trampas:
                 if (enemigo.celda_x == trampa.celda_x and
                         enemigo.celda_y == trampa.celda_y and
                         trampa.activa):
-                    enemigos_a_eliminar.append(i)
-                    trampas_a_eliminar.append(j)
+                    enemigo.activo = False
+                    enemigo.tiempo_muerte = pygame.time.get_ticks()
                     jugador.puntos_trampas += PUNTOS_POR_TRAMPA
+                    trampa.activa = False
                     break
 
-        # Eliminar enemigos y trampas
-        for index in sorted(enemigos_a_eliminar, reverse=True):
-                enemigos[index].activo = False  #
-                enemigos[index].tiempo_muerte = pygame.time.get_ticks()
-
-        for index in sorted(trampas_a_eliminar, reverse=True):
-                del jugador.trampas[index]
+        # Eliminar todas las trampas inactivas de una vez
+        jugador.trampas = [t for t in jugador.trampas if t.activa]
 
         # Manejar reaparición de enemigos
         for enemigo in enemigos:
@@ -288,10 +355,12 @@ def jugar(window):
                     enemigo.reaparecer(mapa, COLUMNAS, FILAS, jugador_pos)
 
         #  Actualizar enemigos activos
-        for enemigo in enemigos:
+        # Actualizar enemigos activos SOLO si el juego ya empezó
+        if juego_iniciado and not ganaste and not perdiste:
+            for enemigo in enemigos:
                 if enemigo.activo:
                     jugador_pos = (jugador.celda_x, jugador.celda_y)
-                    enemigo.elegir_movimiento_aleatorio(mapa, COLUMNAS, FILAS,jugador_pos)
+                    enemigo.elegir_movimiento_aleatorio(mapa, COLUMNAS, FILAS, jugador_pos)
                     enemigo.actualizar()
 
         #  Verificar si el jugador fue atrapado por enemigos ACTIVOS
@@ -348,14 +417,25 @@ def jugar(window):
         clock.tick(60)  # 60 FPS
 
 
+
     puntaje_total = jugador.puntos_trampas  # Por ahora solo puntos de trampas
 
     # Salir del juego
     pygame.quit()
+
+
+    puntaje_total = jugador.puntos_trampas
+
     if perdiste:
-        mostrar_resultado_tk("¡PERDISTE!", tiempo_final, jugador.puntos_trampas, puntaje_total)
+        guardar_puntaje_escapa(nombre_jugador, puntaje_total)
+        mostrar_resultado_tk("¡PERDISTE!", tiempo_transcurrido,
+                             jugador.puntos_trampas, puntaje_total)
+
     elif ganaste:
-        mostrar_resultado_tk("¡GANASTE!", tiempo_final, jugador.puntos_trampas, puntaje_total)
-    else:
-        # Si se cerró la ventana sin ganar ni perder
-        window.deiconify()
+        guardar_puntaje_escapa(nombre_jugador, puntaje_total)
+        mostrar_resultado_tk("¡GANASTE!", tiempo_transcurrido,
+                             jugador.puntos_trampas, puntaje_total)
+
+
+
+
