@@ -5,35 +5,55 @@ from Enemigos import Enemigo
 from Jugador import Jugador
 import tkinter as tk
 import time
+import configuracion
 
 
 class ModoCazador:
-    def __init__(self, mapa, jugador, enemigos, columnas, filas):
+    def __init__(self, mapa, jugador, enemigos, columnas, filas, salida_x, salida_y):
         self.mapa = mapa
         self.jugador = jugador
         self.enemigos = enemigos
         self.columnas = columnas
         self.filas = filas
+        self.salida_x = salida_x
+        self.salida_y = salida_y
         self.puntos = 0
         self.enemigos_eliminados = 0
+        self.enemigos_escapados = 0
 
     def actualizar_enemigos(self):
         jugador_pos = (self.jugador.celda_x, self.jugador.celda_y)
+        salida_pos = (self.salida_x, self.salida_y)
 
         for enemigo in self.enemigos:
             if enemigo.activo:
                 # Los enemigos huyen del jugador
-                enemigo.elegir_movimiento(self.mapa, self.columnas, self.filas, jugador_pos)
+                if not enemigo.en_movimiento:
+                    enemigo.elegir_movimiento_hacia_salida(self.mapa, self.columnas, self.filas, jugador_pos,
+                                                           salida_pos)
                 enemigo.actualizar()
 
-    def verificar_colisiones(self):
+    def verificar_colisiones(self,puntos_por_eliminacion):
         for i, enemigo in enumerate(self.enemigos):
             if (enemigo.activo and
                     enemigo.celda_x == self.jugador.celda_x and
                     enemigo.celda_y == self.jugador.celda_y):
                 # Jugador atrapó enemigo
-                self.puntos += 100
+                self.puntos += puntos_por_eliminacion
                 self.enemigos_eliminados += 1
+                enemigo.activo = False
+                enemigo.tiempo_muerte = pygame.time.get_ticks()
+                return True
+        return False
+
+    def verificar_escapadas(self, puntos_por_escape):
+        for enemigo in self.enemigos:
+            if (enemigo.activo and
+                    enemigo.celda_x == self.salida_x and
+                    enemigo.celda_y == self.salida_y):
+                # Enemigo llegó a la salida
+                self.puntos -= puntos_por_escape
+                self.enemigos_escapados += 1
                 enemigo.activo = False
                 enemigo.tiempo_muerte = pygame.time.get_ticks()
                 return True
@@ -45,6 +65,53 @@ class ModoCazador:
         for enemigo in self.enemigos:
             if not enemigo.activo and enemigo.puede_reaparecer():
                 enemigo.reaparecer(self.mapa, self.columnas, self.filas, jugador_pos)
+
+def mostrar_resultado_cazador_tk(mensaje, puntos, enemigos_eliminados, enemigos_escapados, tiempo_final, window):
+    resultado = tk.Toplevel(window)
+    resultado.title("Resultado Final - Modo Cazador")
+    resultado.geometry("450x450")
+    resultado.resizable(width=False, height=False)
+    resultado.configure(bg="#2E8B57")  # Verde más oscuro
+
+    # Frame principal
+    frame = tk.Frame(resultado, bg="#2E8B57")
+    frame.pack(expand=True, fill='both', padx=20, pady=20)
+
+    # Título principal
+    label_titulo = tk.Label(frame, text=mensaje,
+                            font=("Impact", 24), bg="#2E8B57", fg="white")
+    label_titulo.pack(pady=10)
+
+    # Línea separadora
+    separator = tk.Frame(frame, height=2, bg="white")
+    separator.pack(fill='x', pady=5)
+
+    # Información de estadísticas
+    minutos = int(tiempo_final // 60)
+    segundos = int(tiempo_final % 60)
+
+    stats_text = f"""
+    Tiempo total: {minutos:02d}:{segundos:02d}
+
+    Puntos obtenidos: {puntos}
+
+    Enemigos eliminados: {enemigos_eliminados}
+
+    Enemigos escapados: {enemigos_escapados}
+    """
+
+    label_stats = tk.Label(frame, text=stats_text,
+                           font=("Impact", 14), bg="#2E8B57", fg="white",
+                           justify='left')
+    label_stats.pack(pady=15)
+
+    # Botón de salir
+    boton_salir = tk.Button(frame, text="Volver al Menú Principal",
+                            command=lambda: [resultado.destroy(), window.deiconify()],
+                            font=("Arial", 12), bg="#FF6B35", fg="white")
+    boton_salir.pack(pady=20)
+
+    window.withdraw()
 
 def jugar(window):
 
@@ -63,10 +130,16 @@ def jugar(window):
     AZUL = (0, 0, 255)
     AMARILLO = (255, 255, 0)
 
+    TIEMPO_LIMITE = 180
     HUD_ALTO = 70
     ANCHO, ALTO = 550, 550 + HUD_ALTO
     screen = pygame.display.set_mode((ANCHO, ALTO))
     pygame.display.set_caption("Escapa del Laberinto")
+
+    try:
+        dificultad = configuracion.dificultad_actual
+    except AttributeError:
+        dificultad = "Medio"
 
     def generar_mapa():
         mapa = []
@@ -148,7 +221,23 @@ def jugar(window):
     jugador = Jugador(jugador_x, jugador_y, TAMAÑO_CELDA, modo="cazador")
 
     enemigos = []
-    NUM_ENEMIGOS = 3
+    if dificultad == "Facil":
+        NUM_ENEMIGOS = 1
+        velocidad_enemigo = 1
+        PUNTOS_POR_ELIMINACION = 50  # Menos puntos en fácil
+        PUNTOS_POR_ESCAPE = 25
+    elif dificultad == "Dificil":
+        NUM_ENEMIGOS = 5
+        velocidad_enemigo = 5
+        PUNTOS_POR_ELIMINACION = 100 # Más puntos en difícil
+        PUNTOS_POR_ESCAPE = 50
+    else:  # Medio
+        NUM_ENEMIGOS = 3
+        velocidad_enemigo = 3
+        PUNTOS_POR_ELIMINACION = 75  # Puntos estándar
+        PUNTOS_POR_ESCAPE = 35
+
+
     for _ in range(NUM_ENEMIGOS):
         while True:
             x = random.randint(1, COLUMNAS - 2)
@@ -166,15 +255,25 @@ def jugar(window):
                         if mapa[y][x].transitable_enemigo:
                             vecinos_validos += 1
                 if vecinos_validos > 0:
-                    enemigos.append(Enemigo(x, y, TAMAÑO_CELDA, modo="cazador"))
+                    nuevo_enemigo = Enemigo(x, y, TAMAÑO_CELDA, modo="cazador")
+                    nuevo_enemigo.velocidad = velocidad_enemigo  # Aplicar velocidad según dificultad
+                    enemigos.append(nuevo_enemigo)
                     break
 
-    modo_cazador = ModoCazador(mapa, jugador, enemigos, COLUMNAS, FILAS)
+    modo_cazador = ModoCazador(mapa, jugador, enemigos, COLUMNAS, FILAS, salida_x, salida_y)
     running = True
     clock = pygame.time.Clock()
     tiempo_inicio = time.time()
 
     while running:
+        tiempo_transcurrido = time.time() - tiempo_inicio
+        tiempo_restante = max(0, TIEMPO_LIMITE - tiempo_transcurrido)
+
+        if tiempo_restante <= 0 and not ganaste:
+            ganaste = True  # Tiempo terminado - fin del juego
+            tiempo_final = TIEMPO_LIMITE
+
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -203,32 +302,35 @@ def jugar(window):
         font = pygame.font.SysFont(None, 28)
 
         dibujar_mapa(mapa)
-        dibujar_mapa(mapa)
         jugador.actualizar()
         jugador.dibujar(screen, AZUL)
         jugador.recuperar_energia()
         jugador.dibujar_barra_energia(screen, 20, 570, 200, 15)
-        modo_cazador.actualizar_enemigos()
-        modo_cazador.verificar_colisiones()
-        modo_cazador.reaparecer_enemigos()
+        if not ganaste and tiempo_restante > 0:
+            modo_cazador.actualizar_enemigos()
+            modo_cazador.verificar_colisiones(PUNTOS_POR_ELIMINACION)
+            modo_cazador.verificar_escapadas(PUNTOS_POR_ESCAPE)
+            modo_cazador.reaparecer_enemigos()
 
         for enemigo in enemigos:
             if enemigo.activo:
                 enemigo.dibujar(screen)
 
-        tiempo_transcurrido = time.time() - tiempo_inicio
-        minutos = int(tiempo_transcurrido // 60)
-        segundos = int(tiempo_transcurrido % 60)
-        tiempo_formateado = f"{minutos:02d}:{segundos:02d}"
+        minutos_rest = int(tiempo_restante // 60)
+        segundos_rest = int(tiempo_restante % 60)
+        tiempo_restante_formateado = f"{minutos_rest:02d}:{segundos_rest:02d}"
 
         texto_puntos = font.render(f"Puntos: {modo_cazador.puntos}", True, (255, 255, 0))
         texto_eliminados = font.render(f"Eliminados: {modo_cazador.enemigos_eliminados}", True, (255, 255, 255))
-        texto_tiempo = font.render(f"Tiempo: {tiempo_formateado}", True, (255, 255, 255))
+        texto_tiempo_restante = font.render(f"Restante: {tiempo_restante_formateado}", True,
+                                            (255, 255, 255) if tiempo_restante > 30 else (255, 100, 100))
         texto_enemigos_activos = font.render(f"Enemigos: {sum(1 for e in enemigos if e.activo)}", True, (255, 255, 255))
+        texto_escapados = font.render(f"Escapados: {modo_cazador.enemigos_escapados}", True, (255, 100, 100))
 
+        screen.blit(texto_escapados, (150, 570))
         screen.blit(texto_puntos, (20, 590))
         screen.blit(texto_eliminados, (150, 590))
-        screen.blit(texto_tiempo, (300, 570))
+        screen.blit(texto_tiempo_restante, (300, 570))
         screen.blit(texto_enemigos_activos, (300, 590))
 
         # DIBUJAR SALIDA
@@ -239,13 +341,26 @@ def jugar(window):
                           salida_y * TAMAÑO_CELDA + 5,
                           TAMAÑO_CELDA - 10, TAMAÑO_CELDA - 10))
 
+        if ganaste and tiempo_restante <= 0:
+            font_fin = pygame.font.Font(None, 36)
+            texto_fin = font_fin.render("¡TIEMPO AGOTADO!", True, (255, 255, 0))
+            screen.blit(texto_fin, (ANCHO // 2 - 120, ALTO // 2 - 18))
 
 
         pygame.display.update()
         clock.tick(60)  # 60 FPS
-
+        if ganaste:
+            pygame.display.update()
+            pygame.time.delay(2000)  # Esperar 2 segundos antes de mostrar resultados
+            running = False
 
 
     # Salir del juego
     pygame.quit()
-
+    if ganaste:
+        mostrar_resultado_cazador_tk("¡TIEMPO AGOTADO!",
+                                     modo_cazador.puntos,
+                                     modo_cazador.enemigos_eliminados,
+                                     modo_cazador.enemigos_escapados,
+                                     TIEMPO_LIMITE,
+                                     window)

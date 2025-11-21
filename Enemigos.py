@@ -81,6 +81,82 @@ class Enemigo:
             self.celda_objetivo_y = ny
             self.en_movimiento = True
 
+    def elegir_movimiento_hacia_salida(self, mapa, columnas, filas, jugador_pos, salida_pos):
+        if self.en_movimiento or not self.activo:
+            return
+
+        direcciones = [(0, -1), (0, 1), (-1, 0), (1, 0)]  # Arriba, abajo, izquierda, derecha
+        movimientos_validos = []
+
+        # Calcular distancia actual a la salida y al jugador
+        dist_a_salida_actual = abs(self.celda_x - salida_pos[0]) + abs(self.celda_y - salida_pos[1])
+        dist_al_jugador_actual = abs(self.celda_x - jugador_pos[0]) + abs(self.celda_y - jugador_pos[1])
+
+        for dx, dy in direcciones:
+            nueva_x = self.celda_x + dx
+            nueva_y = self.celda_y + dy
+
+            if (0 <= nueva_x < columnas and 0 <= nueva_y < filas and
+                    self._es_transitable_para_modo(mapa, nueva_x, nueva_y)):
+
+                # Calcular nuevas distancias
+                nueva_dist_a_salida = abs(nueva_x - salida_pos[0]) + abs(nueva_y - salida_pos[1])
+                nueva_dist_al_jugador = abs(nueva_x - jugador_pos[0]) + abs(nueva_y - jugador_pos[1])
+
+                # Sistema de puntuación por movimiento
+                puntuacion = 0
+
+                # PRIORIDAD 1: Si está muy cerca de la salida (2 casillas o menos), ESCAPAR
+                if dist_a_salida_actual <= 2:
+                    if nueva_dist_a_salida < dist_a_salida_actual:  # Se acerca a la salida
+                        puntuacion += 100  # Máxima prioridad
+                    elif nueva_dist_a_salida == dist_a_salida_actual:  # Se mantiene igual de cerca
+                        puntuacion += 50
+                    else:  # Se aleja de la salida
+                        puntuacion -= 100
+
+                # PRIORIDAD 2: Si el jugador está muy cerca (3 casillas o menos), HUIR
+                elif dist_al_jugador_actual <= 3:
+                    if nueva_dist_al_jugador > dist_al_jugador_actual:  # Se aleja del jugador
+                        puntuacion += 80
+                    elif nueva_dist_al_jugador == dist_al_jugador_actual:  # Se mantiene igual de lejos
+                        puntuacion += 30
+                    else:  # Se acerca al jugador
+                        puntuacion -= 80
+
+                # PRIORIDAD 3: Situación normal - buscar salida
+                else:
+                    if nueva_dist_a_salida < dist_a_salida_actual:  # Se acerca a la salida
+                        puntuacion += 60
+                    elif nueva_dist_a_salida == dist_a_salida_actual:  # Se mantiene igual
+                        puntuacion += 20
+                    else:  # Se aleja de la salida
+                        puntuacion -= 40
+
+                    # Bonus pequeño por alejarse del jugador
+                    if nueva_dist_al_jugador > dist_al_jugador_actual:
+                        puntuacion += 10
+
+                movimientos_validos.append((dx, dy, puntuacion, nueva_dist_a_salida))
+
+        if movimientos_validos:
+            # Ordenar por puntuación descendente (mejores movimientos primero)
+            movimientos_validos.sort(
+                key=lambda x: (-x[2], x[3]))  # Primero por puntuación, luego por distancia a salida
+
+            mejor_mov = movimientos_validos[0]
+
+            # Solo moverse si la puntuación es positiva (evita movimientos "suicidas")
+            if mejor_mov[2] > 0:
+                self.celda_objetivo_x = self.celda_x + mejor_mov[0]
+                self.celda_objetivo_y = self.celda_y + mejor_mov[1]
+                self.en_movimiento = True
+            else:
+                # Si todos los movimientos son malos, quedarse quieto
+                self.en_movimiento = False
+        else:
+            self.en_movimiento = False
+
     def actualizar(self):
         if not self.activo or not self.en_movimiento:
             return
