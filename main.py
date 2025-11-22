@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import messagebox
 from tkinter import *
 import random
 from PIL import ImageTk, Image
@@ -24,17 +25,21 @@ elegir.place(x= 60, y= 150)
 def iniciar_escapa():
     nombre = entry1.get().strip()
     if not nombre:
-        # Podés mostrar un messagebox, por ahora un print:
-        print("Ingrese un nombre antes de jugar")
+        messagebox.showwarning("Nombre requerido", "Por favor ingrese su nombre antes de jugar")
         return
     jugarescapar.jugar(window, nombre)
 
-boton_escapa = Button(text="Escapar", command=iniciar_escapa)
+def iniciar_cazador():
+    nombre = entry1.get().strip()
+    if not nombre:
+        messagebox.showwarning("Nombre requerido", "Por favor ingrese su nombre antes de jugar")
+        return
+    jugarcazador.jugar(window, nombre)
 
-boton_escapa = Button(text="Escapar" ,command=lambda: jugarescapar.jugar(window, entry1.get()))
+boton_escapa = Button(text="Escapar" ,command=iniciar_escapa)
 boton_escapa.place(x=60,y= 200)
 
-boton_cazar = Button(text="Cazador",command=lambda: jugarcazador.jugar(window))
+boton_cazar = Button(text="Cazador",command=iniciar_cazador)
 boton_cazar.place(x= 160,y=200)
 
 
