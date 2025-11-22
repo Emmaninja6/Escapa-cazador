@@ -1,5 +1,4 @@
-PRUEBA DIFICIL,1500
-Jugador,150
-Jugador,150
-Jugador,75
-Jugador,75
+run,1501
+v,25
+cazador,12
+c,0

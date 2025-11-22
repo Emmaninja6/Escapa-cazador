@@ -6,7 +6,58 @@ from Jugador import Jugador
 import tkinter as tk
 import time
 import configuracion
+import os
 
+RUTA_PUNTAJES_CAZADOR = "puntajes_cazador.txt"
+
+def guardar_puntaje_cazador(nombre, puntos):
+    nombre = nombre.strip()
+    if not nombre:
+        nombre = "Jugador"
+
+    puntajes = []
+    if os.path.exists(RUTA_PUNTAJES_CAZADOR):
+        with open(RUTA_PUNTAJES_CAZADOR, "r", encoding="utf-8") as f:
+            for linea in f:
+                linea = linea.strip()
+                if not linea:
+                    continue
+                n, pts = linea.rsplit(",", 1)
+                try:
+                    pts = int(pts)
+                    puntajes.append((n, pts))
+                except ValueError:
+                    continue
+
+    puntajes.append((nombre, puntos))
+    puntajes.sort(key=lambda x: x[1], reverse=True)
+    puntajes = puntajes[:5]
+
+    with open(RUTA_PUNTAJES_CAZADOR, "w", encoding="utf-8") as f:
+        for n, p in puntajes:
+            f.write(f"{n},{p}\n")
+
+def calcular_puntaje_cazador(puntos_actuales, enemigos_eliminados, enemigos_escapados, tiempo_restante, dificultad):
+
+        puntos_base = puntos_actuales
+
+        bonificacion_tiempo = int(tiempo_restante * 2)
+
+        penalizacion_escape = enemigos_escapados * 50
+        if dificultad == "Dificil":
+            penalizacion_escape = enemigos_escapados * 75
+
+        # Multiplicador por dificultad
+        if dificultad == "Facil":
+            multiplicador = 0.8  # Menos puntos en fácil
+        elif dificultad == "Medio":
+            multiplicador = 1.0
+        else:  # Dificil
+            multiplicador = 1.5  # Más puntos en difícil
+
+        puntaje_final = int((puntos_base + bonificacion_tiempo - penalizacion_escape) * multiplicador)
+
+        return max(0, puntaje_final)
 
 class ModoCazador:
     def __init__(self, mapa, jugador, enemigos, columnas, filas, salida_x, salida_y):
@@ -113,11 +164,13 @@ def mostrar_resultado_cazador_tk(mensaje, puntos, enemigos_eliminados, enemigos_
 
     window.withdraw()
 
-def jugar(window):
+def jugar(window,nombre_jugador):
 
     window.withdraw()
 
     pygame.init()
+
+    pygame.mixer.init()
 
     ANCHO, ALTO = 550, 550
     FILAS, COLUMNAS = 14, 14
@@ -135,6 +188,13 @@ def jugar(window):
     ANCHO, ALTO = 550, 550 + HUD_ALTO
     screen = pygame.display.set_mode((ANCHO, ALTO))
     pygame.display.set_caption("Escapa del Laberinto")
+
+    try:
+        pygame.mixer.music.load("persecucion.mp3")  # Cambia por el nombre de tu archivo
+        pygame.mixer.music.set_volume(0.5)  # Volumen entre 0.0 y 1.0
+        pygame.mixer.music.play(-1)  # -1 significa loop infinito
+    except pygame.error as e:
+        print(f"No se pudo cargar la música: {e}")
 
     try:
         dificultad = configuracion.dificultad_actual
@@ -327,11 +387,11 @@ def jugar(window):
         texto_enemigos_activos = font.render(f"Enemigos: {sum(1 for e in enemigos if e.activo)}", True, (255, 255, 255))
         texto_escapados = font.render(f"Escapados: {modo_cazador.enemigos_escapados}", True, (255, 100, 100))
 
-        screen.blit(texto_escapados, (150, 570))
+        screen.blit(texto_escapados, (220, 570))
         screen.blit(texto_puntos, (20, 590))
-        screen.blit(texto_eliminados, (150, 590))
-        screen.blit(texto_tiempo_restante, (300, 570))
-        screen.blit(texto_enemigos_activos, (300, 590))
+        screen.blit(texto_eliminados, (220, 590))
+        screen.blit(texto_tiempo_restante, (350, 570))
+        screen.blit(texto_enemigos_activos, (350, 590))
 
         # DIBUJAR SALIDA
         salida_pixel_x = salida_x * TAMAÑO_CELDA + TAMAÑO_CELDA // 2
@@ -355,11 +415,22 @@ def jugar(window):
             running = False
 
 
+    puntaje_final = calcular_puntaje_cazador(
+        modo_cazador.puntos,
+        modo_cazador.enemigos_eliminados,
+        modo_cazador.enemigos_escapados,
+        tiempo_restante,  # Este valor ya lo tienes
+        dificultad
+    )
+    pygame.mixer.music.stop()
     # Salir del juego
     pygame.quit()
+
+
+    guardar_puntaje_cazador(nombre_jugador, puntaje_final)
     if ganaste:
         mostrar_resultado_cazador_tk("¡TIEMPO AGOTADO!",
-                                     modo_cazador.puntos,
+                                     puntaje_final,
                                      modo_cazador.enemigos_eliminados,
                                      modo_cazador.enemigos_escapados,
                                      TIEMPO_LIMITE,

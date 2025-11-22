@@ -41,11 +41,42 @@ def guardar_puntaje_escapa(nombre, puntos):
         for n, p in puntajes:
             f.write(f"{n},{p}\n")
 
+
+def calcular_puntaje_total(tiempo_segundos, puntos_trampas, dificultad,ganaste):
+        if ganaste:
+            # Puntos por tiempo: menos tiempo = más puntos (máximo 1000 puntos)
+            puntos_tiempo = max(100, 1000 - int(tiempo_segundos * 5))
+
+            # Bonificación por dificultad
+            if dificultad == "Facil":
+                multiplicador = 1.0
+                bonificacion_trampas = puntos_trampas * 1
+            elif dificultad == "Medio":
+                multiplicador = 1.5
+                bonificacion_trampas = puntos_trampas * 2
+            else:  # Dificil
+                multiplicador = 2.0
+                bonificacion_trampas = puntos_trampas * 3
+
+            puntaje_total = int((puntos_tiempo + bonificacion_trampas) * multiplicador)
+
+        else:  # Perdió
+            # Penalización: solo se quedan con el 50% de los puntos de trampas
+            penalizacion = 0.5
+            if dificultad == "Dificil":
+                penalizacion = 0.3  # En difícil pierde más puntos
+
+            puntaje_total = int(puntos_trampas * penalizacion)
+
+        return max(0, puntaje_total)
+
 def jugar(window, nombre_jugador):
 
     window.withdraw()
 
     pygame.init()
+
+    pygame.mixer.init()
 
     ANCHO, ALTO = 550, 550
     FILAS, COLUMNAS = 14, 14
@@ -66,6 +97,13 @@ def jugar(window, nombre_jugador):
     pygame.display.set_caption("Escapa del Laberinto")
     tiempo_inicio = time.time()
     tiempo_transcurrido = 0
+
+    try:
+        pygame.mixer.music.load("persecucion.mp3")  # Cambia por el nombre de tu archivo
+        pygame.mixer.music.set_volume(0.5)  # Volumen entre 0.0 y 1.0
+        pygame.mixer.music.play(-1)  # -1 significa loop infinito
+    except pygame.error as e:
+        print(f"No se pudo cargar la música: {e}")
 
     try:
         dificultad = configuracion.dificultad_actual
@@ -313,10 +351,10 @@ def jugar(window, nombre_jugador):
         texto_tiempo = font.render(f"Tiempo: {tiempo_formateado}", True, (255, 255, 255))
 
         # textos en el HUD
-        screen.blit(texto_trampas, (230, 570))
-        screen.blit(texto_puntos, (350, 570))
-        screen.blit(texto_cooldown, (230, 590))
-        screen.blit(texto_tiempo, (375, 590))
+        screen.blit(texto_trampas, (250, 570))
+        screen.blit(texto_puntos, (370, 570))
+        screen.blit(texto_cooldown, (250, 590))
+        screen.blit(texto_tiempo, (395, 590))
 
         dibujar_mapa(mapa)
         dibujar_mapa(mapa)
@@ -416,15 +454,11 @@ def jugar(window, nombre_jugador):
         pygame.display.update()
         clock.tick(60)  # 60 FPS
 
-
-
-    puntaje_total = jugador.puntos_trampas  # Por ahora solo puntos de trampas
+    pygame.mixer.music.stop()
+    puntaje_total = calcular_puntaje_total(tiempo_transcurrido, jugador.puntos_trampas, dificultad, ganaste)
 
     # Salir del juego
     pygame.quit()
-
-
-    puntaje_total = jugador.puntos_trampas
 
     if perdiste:
         guardar_puntaje_escapa(nombre_jugador, puntaje_total)
