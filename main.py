@@ -27,6 +27,7 @@ def iniciar_escapa():
     if not nombre:
         messagebox.showwarning("Nombre requerido", "Por favor ingrese su nombre antes de jugar")
         return
+    configuracion.registrar_jugador(nombre)
     jugarescapar.jugar(window, nombre)
 
 def iniciar_cazador():
@@ -34,7 +35,9 @@ def iniciar_cazador():
     if not nombre:
         messagebox.showwarning("Nombre requerido", "Por favor ingrese su nombre antes de jugar")
         return
+    configuracion.registrar_jugador(nombre)
     jugarcazador.jugar(window, nombre)
+
 
 boton_escapa = Button(text="Escapar" ,command=iniciar_escapa)
 boton_escapa.place(x=60,y= 200)
